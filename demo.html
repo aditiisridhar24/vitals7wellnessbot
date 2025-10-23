@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vitals7 Wellness Bot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+    <style>
+        body {
+            font-family: 'Montserrat', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-200 p-8">
+
+    <div id="chatbot-popup" class="fixed bottom-8 right-8 w-[400px] h-[650px] flex flex-col bg-gray-100 rounded-xl shadow-2xl overflow-hidden z-50">
+
+        <header class="bg-white shadow-md z-10 flex-shrink-0">
+            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                <div class="flex items-center space-x-3">
+                    <img src="https://res.cloudinary.com/dgtqgwtot/image/upload/v1756388751/img40_vbdghr.jpg" alt="Vitals7 Wellness Bot Logo" class="w-8 h-8 rounded-full">
+                    <h1 class="text-lg font-semibold text-gray-800">Vitals7 Wellness Bot</h1>
+                </div>
+                <div class="flex items-center space-x-1">
+                    <button id="clear-chat-btn" title="Start New Chat" class="text-gray-500 hover:text-gray-800 p-2 rounded-full hover:bg-gray-100">
+                        <span class="material-icons text-xl">refresh</span>
+                    </button>
+                    <button id="close-popup-btn" title="Close Chat" class="text-gray-500 hover:text-gray-800 p-2 rounded-full hover:bg-gray-100">
+                        <span class="material-icons text-xl">close</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main id="chat-container" class="flex-1 overflow-y-auto p-4 space-y-4">
+            </main>
+
+        <footer class="bg-white border-t border-gray-200 p-3 flex-shrink-0">
+               <div class="flex flex-col items-center mb-3 gap-2">
+                    <button id="start-dosha-quiz-btn" class="w-full bg-teal-100 text-teal-800 font-semibold py-2 px-4 rounded-full text-sm hover:bg-teal-200 transition-colors duration-300">
+                        Discover Your Dosha
+                    </button>
+                    <div class="w-full flex gap-2">
+                        <button id="start-agni-quiz-btn" class="flex-1 bg-orange-100 text-orange-800 font-semibold py-2 px-4 rounded-full text-sm hover:bg-orange-200 transition-colors duration-300">
+                            Assess Digestion
+                        </button>
+                        <button id="start-guna-quiz-btn" class="flex-1 bg-sky-100 text-sky-800 font-semibold py-2 px-4 rounded-full text-sm hover:bg-sky-200 transition-colors duration-300">
+                            Mind Balance
+                        </button>
+                    </div>
+                </div>
+                <form id="chat-form" class="flex items-center">
+                    <input id="user-input" class="flex-1 w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm" placeholder="Type your message..." type="text"/>
+                    <button id="send-button" class="ml-2 bg-teal-600 p-2.5 rounded-full text-white hover:bg-teal-700">
+                        <span class="material-icons text-base">send</span>
+                    </button>
+                </form>
+        </footer>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const chatbotPopup = document.getElementById('chatbot-popup');
+            const chatContainer = document.getElementById('chat-container');
+            const chatForm = document.getElementById('chat-form');
+            const userInput = document.getElementById('user-input');
+            const startDoshaQuizBtn = document.getElementById('start-dosha-quiz-btn');
+            const startAgniQuizBtn = document.getElementById('start-agni-quiz-btn');
+            const startGunaQuizBtn = document.getElementById('start-guna-quiz-btn');
+            const clearChatBtn = document.getElementById('clear-chat-btn');
+            const closePopupBtn = document.getElementById('close-popup-btn');
+            
+            let chatHistory = [];
+            let inQuiz = false;
+            let currentQuestionIndex = 0;
+            
+            let doshaScores = { vata: 0, pitta: 0, kapha: 0 };
+            let userDominantDosha = null;
+            
+            let agniScores = { balanced: 0, variable: 0, high: 0, low: 0 };
+            let userAgniState = null;
+
+            let gunaScores = { sattva: 0, rajas: 0, tamas: 0 };
+            let userGunaState = null;
+
+            const doshaQuizQuestions = [
+                { question: "What is your natural body frame?", options: [{ text: "Thin, light, and slender. Hard to gain weight.", dosha: "vata" }, { text: "Medium and well-proportioned.", dosha: "pitta" }, { text: "Solid and sturdy. Easy to gain weight.", dosha: "kapha" }] },
+                { question: "How would you describe your skin?", options: [{ text: "Dry, thin, and cool to the touch.", dosha: "vata" }, { text: "Sensitive, warm, and prone to redness or moles.", dosha: "pitta" }, { text: "Thick, oily, and smooth.", dosha: "kapha" }] },
+                { question: "What is the texture of your hair?", options: [{ text: "Dry, thin, or brittle.", dosha: "vata" }, { text: "Fine, straight, may gray early.", dosha: "pitta" }, { text: "Thick, oily, and wavy.", dosha: "kapha" }] },
+                { question: "How is your sleep quality?", options: [{ text: "Light, interrupted, and I often have vivid dreams.", dosha: "vata" }, { text: "Sound and moderate, but I can get hot at night.", dosha: "pitta" }, { text: "Deep, long, and I can have trouble waking up.", dosha: "kapha" }] },
+                { question: "What is your general temperament?", options: [{ text: "Enthusiastic, creative, and sometimes anxious.", dosha: "vata" }, { text: "Driven, focused, and can be irritable under pressure.", dosha: "pitta" }, { text: "Calm, steady, and sometimes complacent.", dosha: "kapha" }] }
+            ];
+            
+            const agniQuizQuestions = [
+                { question: "How is your appetite?", options: [{ text: "Consistent and strong.", type: "balanced" }, { text: "Irregular, I sometimes forget to eat.", type: "variable" }, { text: "Very intense, I get irritable if I miss a meal.", type: "high" }, { text: "Generally low, I don't feel very hungry.", type: "low" }] },
+                { question: "How do you feel after eating a normal-sized meal?", options: [{ text: "Energized and satisfied.", type: "balanced" }, { text: "Gassy or bloated.", type: "variable" }, { text: "I might get acid reflux or feel overly warm.", type: "high" }, { text: "Heavy, tired, or sluggish.", type: "low" }] },
+                { question: "What is your tongue like in the morning?", options: [{ text: "A thin, clear, or no coating.", type: "balanced" }, { text: "A brownish or grayish coating.", type: "variable" }, { text: "A yellowish or greenish coating.", type: "high" }, { text: "A thick, white, sticky coating.", type: "low" }] },
+                { question: "How would you describe your bowel movements?", options: [{ text: "Regular and well-formed.", type: "balanced" }, { text: "Dry, hard, and irregular.", type: "variable" }, { text: "Loose or frequent, with a sense of urgency.", type: "high" }, { text: "Slow, heavy, and sometimes sluggish.", type: "low" }] },
+                { question: "What is your level of thirst?", options: [{ text: "Moderate and consistent.", type: "balanced" }, { text: "Variable, sometimes I forget to drink.", type: "variable" }, { text: "Often very thirsty.", type: "high" }, { text: "Rarely feel thirsty.", type: "low" }] }
+            ];
+            
+            const gunaQuizQuestions = [
+                { question: "How would you describe your ability to focus?", options: [{ text: "Clear and steady.", type: "sattva" }, { text: "Restless and easily distracted.", type: "rajas" }, { text: "Dull and difficult to concentrate.", type: "tamas" }] },
+                { question: "What is your typical emotional state?", options: [{ text: "Calm, peaceful, and content.", type: "sattva" }, { text: "Agitated, driven, with emotional highs and lows.", type: "rajas" }, { text: "Lethargic, sad, or lacking motivation.", type: "tamas" }] },
+                { question: "How do you react to unexpected changes?", options: [{ text: "I adapt calmly and with ease.", type: "sattva" }, { text: "With frustration or a desire to take control.", type: "rajas" }, { text: "With resistance, avoidance, or feeling overwhelmed.", type: "tamas" }] },
+                { question: "What best describes your lifestyle and habits?", options: [{ text: "Balanced, clean, and moderate.", type: "sattva" }, { text: "Overly active, stimulating, and pleasure-seeking.", type: "rajas" }, { text: "Sedentary, disorganized, or prone to overindulgence.", type: "tamas" }] },
+                { question: "How is your mental clarity upon waking?", options: [{ text: "Clear, perceptive, and refreshed.", type: "sattva" }, { text: "Mind is already racing with thoughts and plans.", type: "rajas" }, { text: "Foggy, confused, or dull.", type: "tamas" }] }
+            ];
+
+            // --- Event Listeners ---
+            startDoshaQuizBtn.addEventListener('click', startDoshaQuiz);
+            startAgniQuizBtn.addEventListener('click', startAgniQuiz);
+            startGunaQuizBtn.addEventListener('click', startGunaQuiz);
+            chatForm.addEventListener('submit', handleFormSubmit);
+            clearChatBtn.addEventListener('click', clearChat);
+            closePopupBtn.addEventListener('click', () => {
+                chatbotPopup.style.display = 'none';
+            });
+
+            function initializeChat() {
+                const initialMessage = { text: "Hello! I'm your Vitals7 Wellness Bot. How can I help you today? You can ask me about Ayurvedic principles or take a quiz to discover your dosha." };
+                appendMessage(initialMessage, 'ai');
+            }
+            
+            initializeChat();
+
+            function clearChat() {
+                chatContainer.innerHTML = '';
+                chatHistory = [];
+                userDominantDosha = null;
+                userAgniState = null;
+                userGunaState = null;
+                inQuiz = false;
+                document.querySelector('footer').classList.remove('hidden');
+                initializeChat();
+            }
+
+            async function handleFormSubmit(event) {
+                event.preventDefault();
+                const userMessage = userInput.value.trim();
+                if (userMessage) {
+                    if (inQuiz) {
+                        appendMessage({ text: "Please select an option to continue the quiz." }, 'ai');
+                        return;
+                    }
+                    userInput.value = '';
+                    userInput.focus();
+                    appendMessage({ text: userMessage }, 'user');
+                    showTypingIndicator();
+                    try {
+                        const aiResponse = await getAIResponse(userMessage);
+                        appendMessage({ text: aiResponse }, 'ai');
+                    } catch (error) {
+                        console.error("Error fetching AI response:", error);
+                        appendMessage({ text: "Sorry, I'm having trouble connecting. Please try again." }, 'ai');
+                    } finally {
+                        hideTypingIndicator();
+                    }
+                }
+            }
+            
+            function startQuiz(quizType) {
+                inQuiz = true;
+                currentQuestionIndex = 0;
+                document.querySelector('footer').classList.add('hidden');
+                if (quizType === 'dosha') {
+                    doshaScores = { vata: 0, pitta: 0, kapha: 0 };
+                    appendMessage({ text: "Let's begin the dosha quiz! Please choose the option that best describes you." }, 'ai');
+                    askQuestion('dosha');
+                } else if (quizType === 'agni') {
+                    agniScores = { balanced: 0, variable: 0, high: 0, low: 0 };
+                    appendMessage({ text: "Let's assess your digestive fire (Agni). Please choose the best option." }, 'ai');
+                    askQuestion('agni');
+                } else if (quizType === 'guna') {
+                    gunaScores = { sattva: 0, rajas: 0, tamas: 0 };
+                    appendMessage({ text: "Let's explore your mind & body balance. Please choose the best option." }, 'ai');
+                    askQuestion('guna');
+                }
+            }
+
+            function askQuestion(quizType) {
+                const questions = {
+                    'dosha': doshaQuizQuestions,
+                    'agni': agniQuizQuestions,
+                    'guna': gunaQuizQuestions
+                }[quizType];
+                const questionData = questions[currentQuestionIndex];
+                appendMessage({ text: questionData.question, options: questionData.options, quizType: quizType }, 'ai');
+            }
+
+            function selectOption(value, quizType, buttonContainer) {
+                if (quizType === 'dosha') doshaScores[value]++;
+                else if (quizType === 'agni') agniScores[value]++;
+                else if (quizType === 'guna') gunaScores[value]++;
+                
+                const buttons = buttonContainer.querySelectorAll('button');
+                buttons.forEach(button => {
+                    button.disabled = true;
+                    button.classList.add('opacity-50', 'cursor-not-allowed');
+                });
+
+                currentQuestionIndex++;
+                const questions = {
+                    'dosha': doshaQuizQuestions,
+                    'agni': agniQuizQuestions,
+                    'guna': gunaQuizQuestions
+                }[quizType];
+
+                if (currentQuestionIndex < questions.length) {
+                    setTimeout(() => askQuestion(quizType), 500);
+                } else {
+                    setTimeout(() => endQuiz(quizType), 500);
+                }
+            }
+
+            function endQuiz(quizType) {
+                if (quizType === 'dosha') endDoshaQuiz();
+                else if (quizType === 'agni') endAgniQuiz();
+                else if (quizType === 'guna') endGunaQuiz();
+                inQuiz = false;
+                document.querySelector('footer').classList.remove('hidden');
+            }
+
+            function startDoshaQuiz() { startQuiz('dosha'); }
+            function endDoshaQuiz() {
+                let dominantDosha = Object.keys(doshaScores).reduce((a, b) => doshaScores[a] > doshaScores[b] ? a : b);
+                userDominantDosha = dominantDosha.charAt(0).toUpperCase() + dominantDosha.slice(1);
+                let resultMessage = `Thank you! Based on your answers, your dominant dosha appears to be ${userDominantDosha}. You can now ask for personalized advice.`;
+                appendMessage({ text: resultMessage }, 'ai');
+            }
+
+            function startAgniQuiz() { startQuiz('agni'); }
+            function endAgniQuiz() {
+                let dominantAgni = Object.keys(agniScores).reduce((a, b) => agniScores[a] > agniScores[b] ? a : b);
+                const agniMap = { 'balanced': 'Balanced', 'variable': 'Variable (Visham)', 'high': 'High (Tikshna)', 'low': 'Low (Manda)' };
+                userAgniState = agniMap[dominantAgni];
+                let resultMessage = `Thank you! Your digestive fire (Agni) appears to be ${userAgniState}. A balanced Agni is key to good health.`;
+                appendMessage({ text: resultMessage }, 'ai');
+            }
+            
+            function startGunaQuiz() { startQuiz('guna'); }
+            function endGunaQuiz() {
+                let dominantGuna = Object.keys(gunaScores).reduce((a, b) => gunaScores[a] > gunaScores[b] ? a : b);
+                userGunaState = dominantGuna.charAt(0).toUpperCase() + dominantGuna.slice(1);
+                let resultMessage = `Thank you! Your current mind & body balance appears to be predominantly ${userGunaState}. Cultivating a state of Sattva (clarity and harmony) is a primary goal of Ayurveda.`;
+                appendMessage({ text: resultMessage }, 'ai');
+            }
+
+            async function getAIResponse(message) {
+                const apiKey = "AIzaSyBv1a6rTedAlDTgbMk4C1N_QZ_l_bL5Muw"; 
+                if (!apiKey || apiKey === "PASTE_YOUR_API_KEY_HERE") {
+                    return "This chatbot has not been configured with an API key. Please follow the deployment guide to activate the AI.";
+                }
+                let systemPrompt = `You are Vitals7 AI, an expert Ayurvedic guide. Your purpose is to provide informative, safe, and holistic guidance. Keep answers short and to the point. Do not use any Markdown formatting like asterisks for bolding; respond in plain text only. The user's dominant dosha is ${userDominantDosha || 'not yet determined'}. The user's digestive state (Agni) is ${userAgniState || 'not yet determined'}. The user's mental state (Guna) is ${userGunaState || 'not yet determined'}. If their dosha, agni, or guna is known, tailor advice on diet or lifestyle to them. Always end every response with this exact disclaimer on a new line: "Disclaimer: This is for informational purposes only. Consult a professional for medical advice."`;
+                if (chatHistory.length === 0) {
+                   chatHistory.push({ role: "user", parts: [{ text: systemPrompt }] });
+                   chatHistory.push({ role: "model", parts: [{ text: "Understood. I will act as Vitals7 AI and follow all instructions." }] });
+                }
+                chatHistory.push({ role: "user", parts: [{ text: message }] });
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                const payload = { contents: chatHistory };
+                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                if (!response.ok) throw new Error(`API request failed with status ${response.status}`);
+                const result = await response.json();
+                if (result.candidates && result.candidates[0].content && result.candidates[0].content.parts) {
+                    const aiText = result.candidates[0].content.parts[0].text;
+                    chatHistory.push({ role: "model", parts: [{ text: aiText }] });
+                    return aiText;
+                } else {
+                    chatHistory.pop();
+                    return "I'm sorry, I received an unusual response. Could you please rephrase?";
+                }
+            }
+            
+            function appendMessage(messageData, sender) {
+                const messageContainer = document.createElement('div');
+                messageContainer.classList.add('flex', 'items-start', 'gap-3');
+                const avatar = document.createElement('div');
+                avatar.classList.add('w-8', 'h-8', 'rounded-full', 'flex', 'items-center', 'justify-center', 'text-white', 'font-bold', 'text-lg', 'flex-shrink-0');
+                const bubble = document.createElement('div');
+                bubble.classList.add('p-3', 'rounded-lg', 'shadow-sm', 'max-w-xs');
+                const textElement = document.createElement('p');
+                textElement.classList.add('text-gray-800', 'text-sm');
+                textElement.innerHTML = messageData.text.replace(/\n/g, '<br>');
+                bubble.appendChild(textElement);
+
+                if (sender === 'user') {
+                    messageContainer.classList.add('justify-end');
+                    bubble.classList.add('bg-teal-500', 'text-white', 'rounded-br-none');
+                    avatar.classList.add('bg-gray-300');
+                    avatar.innerHTML = `<span class="material-icons text-gray-600 text-lg">person</span>`;
+                    messageContainer.appendChild(bubble);
+                    messageContainer.appendChild(avatar);
+                } else {
+                    messageContainer.classList.add('justify-start');
+                    bubble.classList.add('bg-white', 'rounded-tl-none');
+                    avatar.classList.add('bg-teal-600');
+                    avatar.textContent = 'V';
+                    messageContainer.appendChild(avatar);
+                    messageContainer.appendChild(bubble);
+
+                    if (messageData.options) {
+                        const optionsContainer = document.createElement('div');
+                        optionsContainer.classList.add('mt-3', 'space-y-2');
+                        messageData.options.forEach(option => {
+                            const button = document.createElement('button');
+                            button.textContent = option.text;
+                            button.classList.add('w-full', 'text-left', 'bg-white', 'hover:bg-gray-50', 'border', 'border-gray-200', 'rounded-lg', 'p-2.5', 'text-xs', 'font-medium', 'text-teal-700', 'transition-colors');
+                            const value = messageData.quizType === 'dosha' ? option.dosha : option.type;
+                            button.onclick = () => selectOption(value, messageData.quizType, optionsContainer);
+                            optionsContainer.appendChild(button);
+                        });
+                        bubble.appendChild(optionsContainer);
+                    }
+                }
+                chatContainer.appendChild(messageContainer);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+            
+            function showTypingIndicator() {
+                const typingIndicatorHTML = `
+                    <div id="typing-indicator" class="flex items-start gap-3 justify-start">
+                        <div class="w-8 h-8 rounded-full bg-teal-600 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">V</div>
+                        <div class="bg-white p-3 rounded-lg rounded-tl-none shadow-sm max-w-xs flex items-center space-x-1.5">
+                            <div class="w-1.5 h-1.5 bg-teal-500 rounded-full animate-pulse" style="animation-delay: 0s;"></div>
+                            <div class="w-1.5 h-1.5 bg-teal-500 rounded-full animate-pulse" style="animation-delay: 0.2s;"></div>
+                            <div class="w-1.5 h-1.5 bg-teal-500 rounded-full animate-pulse" style="animation-delay: 0.4s;"></div>
+                        </div>
+                    </div>
+                `;
+                chatContainer.insertAdjacentHTML('beforeend', typingIndicatorHTML);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+
+            function hideTypingIndicator() {
+                const typingIndicator = document.getElementById('typing-indicator');
+                if (typingIndicator) {
+                    typingIndicator.remove();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
